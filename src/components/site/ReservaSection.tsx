@@ -14,7 +14,7 @@ import {
 } from "@/services/umadrurApi";
 import { criarReservaCamisa, type Reserva } from "@/services/reservasApi";
 import { SizeGuide } from "./SizeGuide";
-import { ShirtViewer } from "./ShirtViewer";
+import camisaFrente from "@/assets/camisa/360/frame-01.png";
 import {
   Check,
   Loader2,
@@ -23,10 +23,16 @@ import {
   Copy,
   MessageCircle,
   AlertTriangle,
+  Minus,
+  Plus,
 } from "lucide-react";
 
 type Step = "produto" | "cpf" | "confirmar" | "sucesso";
 type Pgto = "pix-vista" | "pix-parcelado";
+type ErroTipo = "cadastro" | "reserva-existente" | "conexao" | null;
+
+const LIMITE_CAMISAS_POR_CPF = 20;
+const CADASTRO_UMADRUR_URL = "https://cadastroumadrur.adbrr.com.br";
 
 export function ReservaSection() {
   const [step, setStep] = useState<Step>("produto");
@@ -36,7 +42,7 @@ export function ReservaSection() {
   const [cpf, setCpf] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [erroTipo, setErroTipo] = useState<"cadastro" | "reserva-existente" | null>(null);
+  const [erroTipo, setErroTipo] = useState<ErroTipo>(null);
   const [jovem, setJovem] = useState<JovemCadastro | null>(null);
   const [reserva, setReserva] = useState<Reserva | null>(null);
   const [copied, setCopied] = useState(false);
@@ -45,14 +51,46 @@ export function ReservaSection() {
   const total = useMemo(() => qtd * siteConfig.valorCamisa, [qtd]);
   const parcela = useMemo(() => total / 3, [total]);
 
-  async function handleBuscar() {
+  function limparErro() {
     setErro(null);
     setErroTipo(null);
+  }
+
+  function aumentarQtd() {
+    setQtd((atual) => Math.min(LIMITE_CAMISAS_POR_CPF, atual + 1));
+  }
+
+  function diminuirQtd() {
+    setQtd((atual) => Math.max(1, atual - 1));
+  }
+
+  async function handleBuscar() {
+    limparErro();
+
+    const cpfLimpo = cpf.replace(/\D/g, "");
+
+    if (cpfLimpo.length !== 11) {
+      setErro("Informe um CPF válido com 11 números.");
+      setErroTipo(null);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const j = await buscarJovemPorCpf(cpf);
+      const j = await buscarJovemPorCpf(cpfLimpo);
+
+      if (!j) {
+        setJovem(null);
+        setErro(
+          "Não localizamos esse CPF no cadastro da UMADRUR. Faça seu cadastro antes de continuar."
+        );
+        setErroTipo("cadastro");
+        return;
+      }
+
       setJovem(j);
+      limparErro();
     } catch (err) {
       if (err instanceof ConsultaCpfError) {
         setErro(err.message);
@@ -68,8 +106,10 @@ export function ReservaSection() {
         return;
       }
 
-      setErro((err as Error).message || "Não foi possível consultar o CPF agora.");
-      setErroTipo(null);
+      setErro(
+        "Não foi possível conectar ao servidor da reserva. Verifique se o backend está ativo e se a URL da API está configurada corretamente."
+      );
+      setErroTipo("conexao");
     } finally {
       setLoading(false);
     }
@@ -78,8 +118,7 @@ export function ReservaSection() {
   async function handleFinalizar() {
     if (!jovem || !lgpd) return;
 
-    setErro(null);
-    setErroTipo(null);
+    limparErro();
     setLoading(true);
 
     try {
@@ -99,7 +138,8 @@ export function ReservaSection() {
       setReserva(r);
       setStep("sucesso");
     } catch (err) {
-      const message = (err as Error).message || "Não foi possível finalizar a reserva.";
+      const message =
+        (err as Error).message || "Não foi possível finalizar a reserva.";
 
       setErro(message);
 
@@ -119,8 +159,23 @@ export function ReservaSection() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function resetarFluxo() {
+    setStep("produto");
+    setTamanho("M");
+    setQtd(1);
+    setPgto("pix-vista");
+    setCpf("");
+    setJovem(null);
+    setReserva(null);
+    setErro(null);
+    setErroTipo(null);
+    setLgpd(false);
+    setCopied(false);
+  }
+
   const waMsg = (forma: Pgto) => {
     const r = reserva!;
+
     const base = `Olá, paz do Senhor!
 Acabei de fazer a reserva da camisa oficial do Congresso da Sede AD Brás Rudge Ramos.
 
@@ -146,7 +201,9 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
   const cpfErrorWhatsAppMessage =
     erroTipo === "reserva-existente"
       ? "Olá, paz do Senhor!\nJá existe uma reserva ativa no meu CPF para a camisa oficial do Congresso da Sede AD Brás Rudge Ramos. Gostaria de falar com a Secretaria para verificar ou alterar minha reserva."
-      : "Olá, paz do Senhor!\nEstou tentando reservar a camisa oficial do Congresso da Sede AD Brás Rudge Ramos, mas tive dificuldade com meu CPF. Poderia me ajudar?";
+      : erroTipo === "cadastro"
+        ? "Olá, paz do Senhor!\nEstou tentando reservar a camisa oficial do Congresso da Sede AD Brás Rudge Ramos, mas meu CPF não foi localizado no cadastro da UMADRUR. Poderia me ajudar?"
+        : "Olá, paz do Senhor!\nEstou tentando reservar a camisa oficial do Congresso da Sede AD Brás Rudge Ramos, mas tive dificuldade no sistema. Poderia me ajudar?";
 
   const stepIndex = ["produto", "cpf", "confirmar", "sucesso"].indexOf(step);
 
@@ -156,9 +213,11 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
         <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[var(--petrol)]">
           Reserva
         </span>
+
         <h2 className="mt-3 font-display text-4xl font-semibold tracking-tight text-[var(--navy)] sm:text-5xl">
           Garanta a sua camisa
         </h2>
+
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
           Escolha o tamanho, a quantidade e a forma de pagamento. Depois informe seu CPF para localizar seu cadastro.
         </p>
@@ -167,13 +226,39 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
       <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="relative">
           <div className="sticky top-24">
-            <ShirtViewer />
+            <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-visible">
+              <div
+                className="pointer-events-none absolute inset-[12%] z-0 rounded-full"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(0, 142, 180, 0.18) 0%, rgba(0, 142, 180, 0.08) 38%, transparent 68%)",
+                  filter: "blur(28px)",
+                }}
+              />
+
+              <img
+                src={camisaFrente}
+                alt="Camisa oficial do Congresso da Sede"
+                draggable={false}
+                className="relative z-10 h-full w-full select-none object-contain"
+              />
+
+              <div
+                className="pointer-events-none absolute bottom-[8%] left-1/2 z-0 h-[18px] w-[48%] -translate-x-1/2 rounded-full"
+                style={{
+                  background: "rgba(3, 24, 44, 0.18)",
+                  filter: "blur(18px)",
+                }}
+              />
+            </div>
+
             <div className="mx-auto mt-8 max-w-xs text-center">
               <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                 Camisa Oficial · Edição 2026
               </div>
+
               <div className="mt-1 font-display text-lg font-semibold text-[var(--navy)]">
-                Profundidade — {formatBRL(siteConfig.valorCamisa)}
+                Profundidade · {formatBRL(siteConfig.valorCamisa)}
               </div>
             </div>
           </div>
@@ -198,9 +283,15 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   >
                     {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
                   </div>
-                  <span className={`hidden sm:inline ${active ? "text-[var(--navy)]" : "text-muted-foreground"}`}>
+
+                  <span
+                    className={`hidden sm:inline ${
+                      active ? "text-[var(--navy)]" : "text-muted-foreground"
+                    }`}
+                  >
                     {label}
                   </span>
+
                   {i < 3 && (
                     <span
                       className={`mx-1 h-px flex-1 ${
@@ -220,6 +311,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--navy)]">
                     Tamanho
                   </label>
+
                   <SizeGuide />
                 </div>
 
@@ -227,6 +319,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   {tamanhos.map((t) => (
                     <button
                       key={t}
+                      type="button"
                       onClick={() => setTamanho(t)}
                       className={`min-w-[54px] rounded-xl border px-4 py-2.5 text-sm font-semibold tracking-wide transition ${
                         tamanho === t
@@ -244,11 +337,37 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                 <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[var(--navy)]">
                   Quantidade
                 </label>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 min-w-[64px] items-center justify-center rounded-xl border border-[var(--navy)]/15 bg-[var(--mist)] px-4 font-display text-xl font-semibold text-[var(--navy)]">
-                    1
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center rounded-xl border border-[var(--navy)]/15 bg-[var(--mist)] p-1">
+                    <button
+                      type="button"
+                      onClick={diminuirQtd}
+                      disabled={qtd <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[var(--navy)] shadow-sm transition hover:bg-[var(--mist)] disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Diminuir quantidade"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+
+                    <div className="flex h-9 min-w-[58px] items-center justify-center px-4 font-display text-xl font-semibold text-[var(--navy)]">
+                      {qtd}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={aumentarQtd}
+                      disabled={qtd >= LIMITE_CAMISAS_POR_CPF}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[var(--navy)] shadow-sm transition hover:bg-[var(--mist)] disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Aumentar quantidade"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
                   </div>
-                  <span className="text-xs text-muted-foreground">Limite de 1 camisa por reserva</span>
+
+                  <span className="text-xs text-muted-foreground">
+                    Limite de {LIMITE_CAMISAS_POR_CPF} camisas por CPF
+                  </span>
                 </div>
               </div>
 
@@ -259,11 +378,20 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   {([
-                    ["pix-vista", "Pix à vista", `${formatBRL(total)} em uma transferência`],
-                    ["pix-parcelado", "Pix parcelado", `3x de ${formatBRL(parcela)}`],
+                    [
+                      "pix-vista",
+                      "Pix à vista",
+                      `${formatBRL(total)} em uma transferência`,
+                    ],
+                    [
+                      "pix-parcelado",
+                      "Pix parcelado",
+                      `3x de ${formatBRL(parcela)}`,
+                    ],
                   ] as const).map(([val, title, sub]) => (
                     <button
                       key={val}
+                      type="button"
                       onClick={() => setPgto(val)}
                       className={`rounded-2xl border p-4 text-left transition ${
                         pgto === val
@@ -271,8 +399,12 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                           : "border-[var(--navy)]/12 bg-white hover:border-[var(--petrol)]/40"
                       }`}
                     >
-                      <div className="font-display text-base font-semibold text-[var(--navy)]">{title}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
+                      <div className="font-display text-base font-semibold text-[var(--navy)]">
+                        {title}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {sub}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -290,8 +422,12 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           {i + 1}ª parcela
                         </div>
-                        <div className="font-display text-lg font-semibold text-[var(--navy)]">{d}</div>
-                        <div className="text-xs font-medium text-[var(--petrol)]">{formatBRL(parcela)}</div>
+                        <div className="font-display text-lg font-semibold text-[var(--navy)]">
+                          {d}
+                        </div>
+                        <div className="text-xs font-medium text-[var(--petrol)]">
+                          {formatBRL(parcela)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -303,11 +439,17 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                     Total
                   </div>
-                  <div className="font-display text-3xl font-semibold text-[var(--navy)]">{formatBRL(total)}</div>
+                  <div className="font-display text-3xl font-semibold text-[var(--navy)]">
+                    {formatBRL(total)}
+                  </div>
                 </div>
 
                 <button
-                  onClick={() => setStep("cpf")}
+                  type="button"
+                  onClick={() => {
+                    limparErro();
+                    setStep("cpf");
+                  }}
                   className="inline-flex items-center gap-2 rounded-full bg-[var(--navy)] px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-[var(--petrol)]"
                 >
                   Continuar reserva <ArrowRight className="h-4 w-4" />
@@ -339,8 +481,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                         value={cpf}
                         onChange={(e) => {
                           setCpf(maskCPF(e.target.value));
-                          setErro(null);
-                          setErroTipo(null);
+                          limparErro();
                         }}
                         placeholder="000.000.000-00"
                         inputMode="numeric"
@@ -348,11 +489,16 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                       />
 
                       <button
+                        type="button"
                         onClick={handleBuscar}
                         disabled={loading || cpf.replace(/\D/g, "").length !== 11}
                         className="inline-flex items-center gap-2 rounded-xl bg-[var(--navy)] px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-[var(--petrol)] disabled:opacity-40"
                       >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        {loading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
                         Buscar
                       </button>
                     </div>
@@ -362,14 +508,16 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                     <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-5 w-5 text-red-500" />
-                        <div className="flex-1 text-sm text-red-900">{erro}</div>
+                        <div className="flex-1 text-sm text-red-900">
+                          {erro}
+                        </div>
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={() => {
-                            setErro(null);
-                            setErroTipo(null);
+                            limparErro();
                             setCpf("");
                           }}
                           className="rounded-lg border border-[var(--navy)]/15 bg-white px-4 py-2 text-xs font-medium text-[var(--navy)] hover:bg-[var(--mist)]"
@@ -379,7 +527,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
 
                         {erroTipo === "cadastro" && (
                           <a
-                            href={siteConfig.cadastroUmadrurUrl}
+                            href={CADASTRO_UMADRUR_URL}
                             target="_blank"
                             rel="noreferrer"
                             className="rounded-lg bg-[var(--navy)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--petrol)]"
@@ -425,10 +573,11 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
 
                   <div className="flex flex-wrap gap-3">
                     <button
+                      type="button"
                       onClick={() => {
                         setJovem(null);
-                        setErro(null);
-                        setErroTipo(null);
+                        limparErro();
+                        setCpf("");
                       }}
                       className="rounded-full border border-[var(--navy)]/15 bg-white px-5 py-2.5 text-sm font-medium text-[var(--navy)] hover:bg-[var(--mist)]"
                     >
@@ -436,6 +585,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => setStep("confirmar")}
                       className="inline-flex items-center gap-2 rounded-full bg-[var(--navy)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--petrol)]"
                     >
@@ -473,10 +623,16 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   <Field label="Quantidade" value={String(qtd)} />
                 </Card>
                 <Card>
-                  <Field label="Pagamento" value={pgto === "pix-vista" ? "Pix à vista" : "Pix parcelado"} />
+                  <Field
+                    label="Pagamento"
+                    value={pgto === "pix-vista" ? "Pix à vista" : "Pix parcelado"}
+                  />
                 </Card>
                 <Card>
-                  <Field label="Valor unitário" value={formatBRL(siteConfig.valorCamisa)} />
+                  <Field
+                    label="Valor unitário"
+                    value={formatBRL(siteConfig.valorCamisa)}
+                  />
                 </Card>
               </div>
 
@@ -485,7 +641,9 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                   <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[var(--petrol)]">
                     Valor total
                   </div>
-                  <div className="font-display text-3xl font-semibold text-[var(--navy)]">{formatBRL(total)}</div>
+                  <div className="font-display text-3xl font-semibold text-[var(--navy)]">
+                    {formatBRL(total)}
+                  </div>
                 </div>
 
                 {pgto === "pix-parcelado" && (
@@ -508,7 +666,9 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 text-red-500" />
-                    <div className="flex-1 text-sm text-red-900">{erro}</div>
+                    <div className="flex-1 text-sm text-red-900">
+                      {erro}
+                    </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -540,9 +700,9 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
 
               <div className="flex flex-wrap gap-3">
                 <button
+                  type="button"
                   onClick={() => {
-                    setErro(null);
-                    setErroTipo(null);
+                    limparErro();
                     setStep("produto");
                   }}
                   className="rounded-full border border-[var(--navy)]/15 bg-white px-5 py-3 text-sm font-medium text-[var(--navy)] hover:bg-[var(--mist)]"
@@ -551,6 +711,7 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleFinalizar}
                   disabled={!lgpd || loading}
                   className="flex-1 rounded-full bg-[var(--navy)] px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-[var(--petrol)] disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
@@ -612,8 +773,11 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                 </div>
 
                 <div className="flex items-center gap-2 rounded-xl border border-[var(--navy)]/12 bg-white p-3">
-                  <code className="flex-1 break-all text-sm text-[var(--navy)]">{siteConfig.pixKey}</code>
+                  <code className="flex-1 break-all text-sm text-[var(--navy)]">
+                    {siteConfig.pixKey}
+                  </code>
                   <button
+                    type="button"
                     onClick={copyPix}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--navy)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--petrol)]"
                   >
@@ -622,7 +786,10 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  Recebedor: <span className="text-[var(--navy)]">{siteConfig.pixReceiverName}</span>
+                  Recebedor:{" "}
+                  <span className="text-[var(--navy)]">
+                    {siteConfig.pixReceiverName}
+                  </span>
                 </div>
 
                 <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
@@ -631,26 +798,22 @@ Pix: ${siteConfig.pixKey} (${siteConfig.pixReceiverName})
               </div>
 
               <a
-                href={`https://wa.me/${siteConfig.whatsappSecretaria}?text=${waMsg(reserva.formaPagamento)}`}
+                href={`https://wa.me/${siteConfig.whatsappSecretaria}?text=${waMsg(
+                  reserva.formaPagamento
+                )}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--navy)] px-5 py-3.5 text-sm font-semibold text-white shadow-soft transition hover:bg-[var(--petrol)]"
               >
                 <MessageCircle className="h-4 w-4" />
-                {reserva.formaPagamento === "pix-vista" ? "Enviar comprovante" : "Falar com a Secretaria"}
+                {reserva.formaPagamento === "pix-vista"
+                  ? "Enviar comprovante"
+                  : "Falar com a Secretaria"}
               </a>
 
               <button
-                onClick={() => {
-                  setStep("produto");
-                  setJovem(null);
-                  setCpf("");
-                  setReserva(null);
-                  setQtd(1);
-                  setErro(null);
-                  setErroTipo(null);
-                  setLgpd(false);
-                }}
+                type="button"
+                onClick={resetarFluxo}
                 className="w-full rounded-full border border-[var(--navy)]/12 bg-white py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground hover:bg-[var(--mist)]"
               >
                 Fazer outra reserva
@@ -669,11 +832,17 @@ function Field({ label, value }: { label: string; value: string }) {
       <dt className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-0.5 text-sm font-medium text-[var(--navy)]">{value}</dd>
+      <dd className="mt-0.5 text-sm font-medium text-[var(--navy)]">
+        {value}
+      </dd>
     </div>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-[var(--navy)]/8 bg-white p-3.5">{children}</div>;
+  return (
+    <div className="rounded-xl border border-[var(--navy)]/8 bg-white p-3.5">
+      {children}
+    </div>
+  );
 }

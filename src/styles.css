@@ -43,14 +43,12 @@
 :root {
   --radius: 0.9rem;
 
-  /* Brand */
   --navy: oklch(0.26 0.07 252);
   --petrol: oklch(0.42 0.10 232);
   --ocean: oklch(0.62 0.14 230);
   --cyan-glow: oklch(0.78 0.13 220);
   --mist: oklch(0.96 0.01 230);
 
-  /* Light theme */
   --background: oklch(0.985 0.005 230);
   --foreground: oklch(0.22 0.07 252);
   --card: oklch(1 0 0);
@@ -71,9 +69,11 @@
   --input: oklch(0.26 0.07 252 / 12%);
   --ring: oklch(0.62 0.14 230 / 50%);
 
-  --gradient-mist: radial-gradient(ellipse at 20% 0%, oklch(0.92 0.05 230 / 0.8), transparent 60%),
-                   radial-gradient(ellipse at 100% 100%, oklch(0.86 0.07 220 / 0.45), transparent 55%),
-                   linear-gradient(180deg, oklch(0.985 0.005 230), oklch(0.97 0.01 230));
+  --gradient-mist:
+    radial-gradient(ellipse at 20% 0%, oklch(0.92 0.05 230 / 0.8), transparent 60%),
+    radial-gradient(ellipse at 100% 100%, oklch(0.86 0.07 220 / 0.45), transparent 55%),
+    linear-gradient(180deg, oklch(0.985 0.005 230), oklch(0.97 0.01 230));
+
   --gradient-deep: linear-gradient(135deg, var(--navy), var(--petrol));
   --gradient-cyan: linear-gradient(135deg, var(--ocean), var(--cyan-glow));
   --shadow-soft: 0 1px 2px oklch(0.26 0.07 252 / 0.04), 0 8px 24px -10px oklch(0.26 0.07 252 / 0.10);
@@ -81,14 +81,21 @@
   --shadow-glow: 0 30px 80px -30px oklch(0.62 0.18 230 / 0.55);
 }
 
-.dark { color-scheme: light; }
+.dark {
+  color-scheme: light;
+}
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
     background: var(--background);
     color: var(--foreground);
   }
+
   body {
     font-family: var(--font-sans);
     background-image: var(--gradient-mist);
@@ -96,13 +103,27 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  ::selection { background: oklch(0.62 0.14 230 / 0.2); color: var(--navy); }
+
+  ::selection {
+    background: oklch(0.62 0.14 230 / 0.2);
+    color: var(--navy);
+  }
 }
 
 @layer utilities {
-  .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
-  .font-wordmark { font-family: var(--font-wordmark); letter-spacing: 0; }
-  .font-script { font-family: var(--font-script); }
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  .font-wordmark {
+    font-family: var(--font-wordmark);
+    letter-spacing: 0;
+  }
+
+  .font-script {
+    font-family: var(--font-script);
+  }
 
   .text-gradient-deep {
     background: var(--gradient-deep);
@@ -110,6 +131,7 @@
     background-clip: text;
     color: transparent;
   }
+
   .text-gradient-ocean {
     background: linear-gradient(180deg, var(--navy) 30%, var(--petrol));
     -webkit-background-clip: text;
@@ -122,15 +144,24 @@
     backdrop-filter: blur(14px);
     border: 1px solid oklch(0.26 0.07 252 / 0.08);
   }
+
   .glass-deep {
     background: linear-gradient(180deg, oklch(1 0 0 / 0.95), oklch(0.97 0.01 230 / 0.85));
     backdrop-filter: blur(20px);
     border: 1px solid oklch(0.26 0.07 252 / 0.08);
   }
 
-  .shadow-soft { box-shadow: var(--shadow-soft); }
-  .shadow-elevated { box-shadow: var(--shadow-elevated); }
-  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
 
   .grain {
     background-image: radial-gradient(oklch(0.26 0.07 252 / 0.05) 1px, transparent 1px);
@@ -140,18 +171,35 @@
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
+
   @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-12px); }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-12px);
+    }
   }
+
   .animate-rise {
     animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+
   @keyframes rise {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
+
 .shirt-viewer {
   position: relative;
   width: 100%;
@@ -163,18 +211,21 @@
   touch-action: pan-y;
 }
 
-.shirt-viewer__canvas {
+.shirt-viewer__image {
   position: absolute;
   inset: 0;
   z-index: 2;
   width: 100%;
   height: 100%;
   display: block;
+  object-fit: contain;
   background: transparent;
   cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-.shirt-viewer__canvas:active {
+.shirt-viewer__image:active {
   cursor: grabbing;
 }
 
@@ -207,21 +258,74 @@
   pointer-events: none;
 }
 
-.shirt-viewer__loading {
+.shirt-viewer__hint {
   position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: grid;
-  place-items: center;
+  left: 50%;
+  bottom: 1%;
+  z-index: 4;
+  transform: translateX(-50%);
+  pointer-events: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 4px 12px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(3, 24, 44, 0.48);
+  color: rgba(6, 43, 76, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.cpf-input-safe {
+  min-width: 0;
+  flex: 1;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(6, 43, 76, 0.15);
+  background: #ffffff;
+  padding: 0 16px;
+  color: #062b4c;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  outline: none;
+  box-shadow: none;
+  transition: none;
+  animation: none;
+  transform: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cpf-input-safe:focus,
+.cpf-input-safe:focus-visible {
+  outline: 2px solid rgba(6, 43, 76, 0.25);
+  outline-offset: 2px;
+  box-shadow: none;
+  transition: none;
+  animation: none;
+  transform: none;
+}
+
+#reserva input,
+#reserva input:focus,
+#reserva input:focus-visible {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+#reserva .animate-rise {
+  animation: none !important;
 }
 
 @media (max-width: 640px) {
   .shirt-viewer {
     max-width: min(92vw, 390px);
+  }
+
+  .cpf-input-safe {
+    width: 100%;
+    flex-basis: 100%;
   }
 }
