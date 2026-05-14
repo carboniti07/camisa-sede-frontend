@@ -1,5 +1,4 @@
 import ShirtViewer from "./ShirtViewer";
-import frame01 from "@/assets/camisa/360/frame-01.png";
 
 export default function ShirtShowcase() {
   return (
@@ -47,37 +46,7 @@ export default function ShirtShowcase() {
         </div>
 
         <div className="relative flex min-h-[300px] items-center justify-center bg-transparent md:min-h-[420px]">
-          {/* Mobile: imagem fixa para não estourar o layout */}
-          <div className="relative mx-auto block aspect-square w-full max-w-[330px] md:hidden">
-            <div
-              className="pointer-events-none absolute inset-[12%] z-0 rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(0, 142, 180, 0.18) 0%, rgba(0, 142, 180, 0.08) 38%, transparent 68%)",
-                filter: "blur(28px)",
-              }}
-            />
-
-            <img
-              src={frame01}
-              alt="Camisa oficial do Congresso da Sede"
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              className="relative z-10 h-full w-full select-none object-contain"
-            />
-
-            <div
-              className="pointer-events-none absolute bottom-[8%] left-1/2 z-0 h-[18px] w-[48%] -translate-x-1/2 rounded-full"
-              style={{
-                background: "rgba(3, 24, 44, 0.18)",
-                filter: "blur(18px)",
-              }}
-            />
-          </div>
-
-          {/* Desktop/tablet: mantém o 360 girando */}
-          <div className="hidden w-full max-w-[520px] md:block">
+          <div className="w-full max-w-[330px] sm:max-w-[360px] md:max-w-[520px]">
             <ShirtViewer />
           </div>
         </div>

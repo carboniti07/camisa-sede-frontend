@@ -515,3 +515,17 @@ html {
     max-width: 320px;
   }
 }
+@media (max-width: 768px) {
+  #peca .shirt-viewer {
+    max-width: 330px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 768px) {
+  #peca .shirt-viewer {
+    max-width: 360px;
+  }
+}
