@@ -22,24 +22,100 @@ const FRAME_SOURCES = [
   frame09,
 ];
 
-const AUTOPLAY_MS = 850;
+const AUTOPLAY_MS = 900;
 const RESUME_AFTER_MS = 2500;
-const DRAG_SENSITIVITY = 32;
+const DRAG_SENSITIVITY = 34;
 
 type ShirtViewerProps = {
   className?: string;
 };
 
+type FrameData = {
+  image: HTMLImageElement;
+  cropX: number;
+  cropY: number;
+  cropWidth: number;
+  cropHeight: number;
+};
+
+function getVisibleBounds(image: HTMLImageElement) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  canvas.width = width;
+  canvas.height = height;
+
+  if (!ctx) {
+    return {
+      cropX: 0,
+      cropY: 0,
+      cropWidth: width,
+      cropHeight: height,
+    };
+  }
+
+  ctx.drawImage(image, 0, 0);
+
+  const data = ctx.getImageData(0, 0, width, height).data;
+
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let foundPixel = false;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = data[(y * width + x) * 4 + 3];
+
+      if (alpha > 8) {
+        foundPixel = true;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (!foundPixel) {
+    return {
+      cropX: 0,
+      cropY: 0,
+      cropWidth: width,
+      cropHeight: height,
+    };
+  }
+
+  const safetyPadding = 8;
+
+  const cropX = Math.max(0, minX - safetyPadding);
+  const cropY = Math.max(0, minY - safetyPadding);
+  const cropWidth = Math.min(width - cropX, maxX - minX + safetyPadding * 2);
+  const cropHeight = Math.min(height - cropY, maxY - minY + safetyPadding * 2);
+
+  return {
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+  };
+}
+
 export function ShirtViewer({ className = "" }: ShirtViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const framesRef = useRef<FrameData[]>([]);
   const currentFrameRef = useRef(0);
   const loadedRef = useRef(false);
 
   const autoplayRef = useRef<number | null>(null);
   const resumeRef = useRef<number | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
 
   const draggingRef = useRef(false);
   const lastXRef = useRef(0);
@@ -56,35 +132,44 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
   const drawCurrentFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    const image = imagesRef.current[currentFrameRef.current];
+    const frame = framesRef.current[currentFrameRef.current];
 
-    if (!canvas || !ctx || !image) return;
+    if (!canvas || !ctx || !frame) return;
 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
+
+    if (!canvasWidth || !canvasHeight) return;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    const imageWidth = image.naturalWidth || image.width;
-    const imageHeight = image.naturalHeight || image.height;
+    const targetWidth = canvasWidth * 0.86;
+    const targetHeight = canvasHeight * 0.86;
 
-    if (!imageWidth || !imageHeight) return;
-
-    const padding = canvasWidth * 0.02;
     const scale = Math.min(
-      (canvasWidth - padding * 2) / imageWidth,
-      (canvasHeight - padding * 2) / imageHeight
+      targetWidth / frame.cropWidth,
+      targetHeight / frame.cropHeight
     );
 
-    const drawWidth = imageWidth * scale;
-    const drawHeight = imageHeight * scale;
+    const drawWidth = frame.cropWidth * scale;
+    const drawHeight = frame.cropHeight * scale;
 
     const x = (canvasWidth - drawWidth) / 2;
     const y = (canvasHeight - drawHeight) / 2;
 
-    ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    ctx.drawImage(
+      frame.image,
+      frame.cropX,
+      frame.cropY,
+      frame.cropWidth,
+      frame.cropHeight,
+      x,
+      y,
+      drawWidth,
+      drawHeight
+    );
   }, []);
 
   const resizeCanvas = useCallback(() => {
@@ -99,11 +184,27 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     const nextWidth = Math.max(1, Math.round(rect.width * dpr));
     const nextHeight = Math.max(1, Math.round(rect.height * dpr));
 
-    if (canvas.width !== nextWidth) canvas.width = nextWidth;
-    if (canvas.height !== nextHeight) canvas.height = nextHeight;
+    if (canvas.width !== nextWidth) {
+      canvas.width = nextWidth;
+    }
+
+    if (canvas.height !== nextHeight) {
+      canvas.height = nextHeight;
+    }
 
     drawCurrentFrame();
   }, [drawCurrentFrame]);
+
+  const requestResize = useCallback(() => {
+    if (resizeRafRef.current !== null) {
+      window.cancelAnimationFrame(resizeRafRef.current);
+    }
+
+    resizeRafRef.current = window.requestAnimationFrame(() => {
+      resizeRafRef.current = null;
+      resizeCanvas();
+    });
+  }, [resizeCanvas]);
 
   const goToFrame = useCallback(
     (index: number) => {
@@ -137,14 +238,32 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     let cancelled = false;
 
     async function preloadFrames() {
-      const loadedImages = await Promise.all(
+      const frames = await Promise.all(
         FRAME_SOURCES.map(
           (src) =>
-            new Promise<HTMLImageElement>((resolve) => {
+            new Promise<FrameData>((resolve) => {
               const image = new Image();
               image.decoding = "async";
-              image.onload = () => resolve(image);
-              image.onerror = () => resolve(image);
+
+              image.onload = () => {
+                const bounds = getVisibleBounds(image);
+
+                resolve({
+                  image,
+                  ...bounds,
+                });
+              };
+
+              image.onerror = () => {
+                resolve({
+                  image,
+                  cropX: 0,
+                  cropY: 0,
+                  cropWidth: image.naturalWidth || image.width || 1,
+                  cropHeight: image.naturalHeight || image.height || 1,
+                });
+              };
+
               image.src = src;
             })
         )
@@ -152,7 +271,7 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
 
       if (cancelled) return;
 
-      imagesRef.current = loadedImages;
+      framesRef.current = frames;
       loadedRef.current = true;
       setIsLoaded(true);
 
@@ -172,6 +291,10 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
       if (resumeRef.current !== null) {
         window.clearTimeout(resumeRef.current);
       }
+
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current);
+      }
     };
   }, [drawCurrentFrame, resizeCanvas, startAutoplay, stopAutoplay]);
 
@@ -180,16 +303,20 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     if (!container) return;
 
     const observer = new ResizeObserver(() => {
-      resizeCanvas();
+      requestResize();
     });
 
     observer.observe(container);
-    resizeCanvas();
+    requestResize();
 
     return () => {
       observer.disconnect();
+
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current);
+      }
     };
-  }, [resizeCanvas]);
+  }, [requestResize]);
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!loadedRef.current) return;
@@ -201,9 +328,14 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
 
     if (resumeRef.current !== null) {
       window.clearTimeout(resumeRef.current);
+      resumeRef.current = null;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // evita erro caso o navegador recuse a captura
+    }
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -221,10 +353,12 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
   function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
     if (!draggingRef.current) return;
 
+    draggingRef.current = false;
+
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
-      // evita erro caso o pointer já tenha sido solto pelo navegador
+      // evita erro caso o pointer já tenha sido solto
     }
 
     scheduleResume();

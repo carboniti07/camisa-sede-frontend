@@ -2,9 +2,12 @@ import ShirtViewer from "./ShirtViewer";
 
 export default function ShirtShowcase() {
   return (
-    <section className="relative w-full overflow-hidden bg-transparent">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-12 md:grid-cols-2 md:px-8 lg:py-20">
-        <div>
+    <section
+      id="peca"
+      className="shirt-showcase-section relative w-full overflow-hidden bg-transparent"
+    >
+      <div className="shirt-showcase-grid mx-auto grid max-w-7xl items-center gap-8 px-5 py-14 md:grid-cols-2 md:px-8 lg:gap-12 lg:py-20">
+        <div className="shirt-showcase-copy">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-cyan-700">
             A peça
           </p>
@@ -42,7 +45,7 @@ export default function ShirtShowcase() {
           </div>
         </div>
 
-        <div className="relative flex min-h-[360px] items-center justify-center bg-transparent">
+        <div className="shirt-showcase-shirt relative flex min-h-[320px] items-center justify-center bg-transparent md:min-h-[420px]">
           <ShirtViewer />
         </div>
       </div>
