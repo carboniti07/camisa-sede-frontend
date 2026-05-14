@@ -396,3 +396,122 @@ html {
     min-height: 280px;
   }
 }
+.shirt-showcase-section {
+  scroll-margin-top: 110px;
+}
+
+.shirt-showcase-viewer {
+  min-height: 420px;
+  overflow: visible;
+}
+
+.shirt-showcase-viewer-inner {
+  width: min(520px, 100%);
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.shirt-showcase-section .shirt-viewer {
+  width: 100%;
+  max-width: 520px;
+}
+
+@media (max-width: 768px) {
+  .shirt-showcase-section {
+    scroll-margin-top: 96px;
+  }
+
+  .shirt-showcase-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding-top: 56px;
+    padding-bottom: 48px;
+  }
+
+  .shirt-showcase-copy {
+    width: 100%;
+  }
+
+  .shirt-showcase-copy h2 {
+    max-width: 100%;
+    font-size: clamp(2.4rem, 10vw, 4.2rem);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+  }
+
+  .shirt-showcase-copy p {
+    max-width: 100%;
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .shirt-showcase-info {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .shirt-showcase-info p:first-child {
+    font-size: 8px;
+    letter-spacing: 0.24em;
+    white-space: nowrap;
+  }
+
+  .shirt-showcase-info p:last-child {
+    font-size: 14px;
+  }
+
+  .shirt-showcase-viewer {
+    width: 100%;
+    min-height: 330px;
+    overflow: hidden;
+  }
+
+  .shirt-showcase-viewer-inner {
+    width: min(360px, 88vw);
+    max-width: 360px;
+    margin-inline: auto;
+  }
+
+  .shirt-showcase-section .shirt-viewer {
+    max-width: 360px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 420px) {
+  .shirt-showcase-grid {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .shirt-showcase-info {
+    gap: 10px;
+  }
+
+  .shirt-showcase-info p:first-child {
+    font-size: 7.5px;
+    letter-spacing: 0.2em;
+  }
+
+  .shirt-showcase-info p:last-child {
+    font-size: 13px;
+  }
+
+  .shirt-showcase-viewer {
+    min-height: 300px;
+  }
+
+  .shirt-showcase-viewer-inner {
+    width: min(320px, 86vw);
+    max-width: 320px;
+  }
+
+  .shirt-showcase-section .shirt-viewer {
+    max-width: 320px;
+  }
+}
