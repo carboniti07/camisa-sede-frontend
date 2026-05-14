@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=Anton&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@500;700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
@@ -12,6 +11,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -31,11 +31,13 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --color-navy: var(--navy);
   --color-petrol: var(--petrol);
   --color-cyan-glow: var(--cyan-glow);
   --color-ocean: var(--ocean);
   --color-mist: var(--mist);
+
   --font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
   --font-wordmark: "Anton", "Bebas Neue", system-ui, sans-serif;
   --font-script: "Caveat", "Brush Script MT", cursive;
@@ -78,8 +80,15 @@
 
   --gradient-deep: linear-gradient(135deg, var(--navy), var(--petrol));
   --gradient-cyan: linear-gradient(135deg, var(--ocean), var(--cyan-glow));
-  --shadow-soft: 0 1px 2px oklch(0.26 0.07 252 / 0.04), 0 8px 24px -10px oklch(0.26 0.07 252 / 0.10);
-  --shadow-elevated: 0 20px 60px -25px oklch(0.26 0.07 252 / 0.25), 0 4px 12px -4px oklch(0.26 0.07 252 / 0.08);
+
+  --shadow-soft:
+    0 1px 2px oklch(0.26 0.07 252 / 0.04),
+    0 8px 24px -10px oklch(0.26 0.07 252 / 0.10);
+
+  --shadow-elevated:
+    0 20px 60px -25px oklch(0.26 0.07 252 / 0.25),
+    0 4px 12px -4px oklch(0.26 0.07 252 / 0.08);
+
   --shadow-glow: 0 30px 80px -30px oklch(0.62 0.18 230 / 0.55);
 }
 
@@ -96,6 +105,10 @@
   body {
     background: var(--background);
     color: var(--foreground);
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
@@ -202,6 +215,12 @@
   }
 }
 
+/* =========================================================
+   SHIRT VIEWER 360
+   Usado pelo ShirtViewer.tsx com CANVAS.
+   Não use mais .shirt-viewer__image nem .shirt-viewer__hint.
+========================================================= */
+
 .shirt-viewer {
   position: relative;
   width: 100%;
@@ -213,21 +232,18 @@
   touch-action: pan-y;
 }
 
-.shirt-viewer__image {
+.shirt-viewer__canvas {
   position: absolute;
   inset: 0;
   z-index: 2;
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
   background: transparent;
   cursor: grab;
-  user-select: none;
-  -webkit-user-drag: none;
 }
 
-.shirt-viewer__image:active {
+.shirt-viewer__canvas:active {
   cursor: grabbing;
 }
 
@@ -260,23 +276,38 @@
   pointer-events: none;
 }
 
-.shirt-viewer__hint {
+.shirt-viewer__loading {
   position: absolute;
-  left: 50%;
-  bottom: 1%;
-  z-index: 4;
-  transform: translateX(-50%);
-  pointer-events: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 4px 12px;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(6, 43, 76, 0.62);
-  backdrop-filter: blur(8px);
+  color: rgba(3, 24, 44, 0.48);
 }
+
+/* =========================================================
+   SEÇÃO A PEÇA
+   Mantém o viewer centralizado e proporcional no mobile.
+========================================================= */
+
+#peca {
+  scroll-margin-top: 110px;
+}
+
+#peca .shirt-viewer {
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+}
+
+/* =========================================================
+   CPF E RESERVA
+========================================================= */
 
 .cpf-input-safe {
   min-width: 0;
@@ -321,201 +352,15 @@
   animation: none !important;
 }
 
-@media (max-width: 640px) {
-  .shirt-viewer {
-    max-width: min(92vw, 390px);
-  }
-
-  .cpf-input-safe {
-    width: 100%;
-    flex-basis: 100%;
-  }
-}
-html {
-  scroll-behavior: smooth;
-}
-
-.shirt-showcase-section {
-  scroll-margin-top: 110px;
-}
-
-.shirt-showcase-section .shirt-viewer {
-  max-width: min(520px, 88vw);
-}
+/* =========================================================
+   RESPONSIVO
+========================================================= */
 
 @media (max-width: 768px) {
-  .shirt-showcase-section {
+  #peca {
     scroll-margin-top: 96px;
   }
 
-  .shirt-showcase-grid {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    padding-top: 56px;
-    padding-bottom: 56px;
-  }
-
-  .shirt-showcase-copy h2 {
-    font-size: clamp(2.4rem, 10vw, 4.4rem);
-    line-height: 0.98;
-    letter-spacing: -0.045em;
-  }
-
-  .shirt-showcase-copy p {
-    font-size: 1rem;
-    line-height: 1.75;
-  }
-
-  .shirt-showcase-shirt {
-    min-height: 300px;
-    margin-top: 12px;
-  }
-
-  .shirt-showcase-section .shirt-viewer {
-    max-width: min(360px, 88vw);
-    aspect-ratio: 1 / 1;
-  }
-
-  .shirt-showcase-section .shirt-viewer__canvas,
-  .shirt-showcase-section .shirt-viewer__image {
-    object-fit: contain;
-  }
-}
-
-@media (max-width: 420px) {
-  .shirt-showcase-grid {
-    padding-left: 22px;
-    padding-right: 22px;
-  }
-
-  .shirt-showcase-section .shirt-viewer {
-    max-width: min(330px, 86vw);
-  }
-
-  .shirt-showcase-shirt {
-    min-height: 280px;
-  }
-}
-.shirt-showcase-section {
-  scroll-margin-top: 110px;
-}
-
-.shirt-showcase-viewer {
-  min-height: 420px;
-  overflow: visible;
-}
-
-.shirt-showcase-viewer-inner {
-  width: min(520px, 100%);
-  max-width: 520px;
-  margin-inline: auto;
-}
-
-.shirt-showcase-section .shirt-viewer {
-  width: 100%;
-  max-width: 520px;
-}
-
-@media (max-width: 768px) {
-  .shirt-showcase-section {
-    scroll-margin-top: 96px;
-  }
-
-  .shirt-showcase-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
-    padding-top: 56px;
-    padding-bottom: 48px;
-  }
-
-  .shirt-showcase-copy {
-    width: 100%;
-  }
-
-  .shirt-showcase-copy h2 {
-    max-width: 100%;
-    font-size: clamp(2.4rem, 10vw, 4.2rem);
-    line-height: 1.02;
-    letter-spacing: -0.045em;
-  }
-
-  .shirt-showcase-copy p {
-    max-width: 100%;
-    font-size: 1rem;
-    line-height: 1.7;
-  }
-
-  .shirt-showcase-info {
-    width: 100%;
-    max-width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .shirt-showcase-info p:first-child {
-    font-size: 8px;
-    letter-spacing: 0.24em;
-    white-space: nowrap;
-  }
-
-  .shirt-showcase-info p:last-child {
-    font-size: 14px;
-  }
-
-  .shirt-showcase-viewer {
-    width: 100%;
-    min-height: 330px;
-    overflow: hidden;
-  }
-
-  .shirt-showcase-viewer-inner {
-    width: min(360px, 88vw);
-    max-width: 360px;
-    margin-inline: auto;
-  }
-
-  .shirt-showcase-section .shirt-viewer {
-    max-width: 360px;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    overflow: visible;
-  }
-}
-
-@media (max-width: 420px) {
-  .shirt-showcase-grid {
-    padding-left: 22px;
-    padding-right: 22px;
-  }
-
-  .shirt-showcase-info {
-    gap: 10px;
-  }
-
-  .shirt-showcase-info p:first-child {
-    font-size: 7.5px;
-    letter-spacing: 0.2em;
-  }
-
-  .shirt-showcase-info p:last-child {
-    font-size: 13px;
-  }
-
-  .shirt-showcase-viewer {
-    min-height: 300px;
-  }
-
-  .shirt-showcase-viewer-inner {
-    width: min(320px, 86vw);
-    max-width: 320px;
-  }
-
-  .shirt-showcase-section .shirt-viewer {
-    max-width: 320px;
-  }
-}
-@media (max-width: 768px) {
   #peca .shirt-viewer {
     max-width: 330px;
     width: 100%;
@@ -527,5 +372,16 @@ html {
 @media (min-width: 640px) and (max-width: 768px) {
   #peca .shirt-viewer {
     max-width: 360px;
+  }
+}
+
+@media (max-width: 640px) {
+  .shirt-viewer {
+    max-width: min(92vw, 330px);
+  }
+
+  .cpf-input-safe {
+    width: 100%;
+    flex-basis: 100%;
   }
 }

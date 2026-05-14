@@ -22,94 +22,19 @@ const FRAME_SOURCES = [
   frame09,
 ];
 
-const AUTOPLAY_MS = 900;
+const AUTOPLAY_MS = 850;
 const RESUME_AFTER_MS = 2500;
-const DRAG_SENSITIVITY = 34;
+const DRAG_SENSITIVITY = 32;
 
 type ShirtViewerProps = {
   className?: string;
 };
 
-type FrameData = {
-  image: HTMLImageElement;
-  cropX: number;
-  cropY: number;
-  cropWidth: number;
-  cropHeight: number;
-};
-
-function getVisibleBounds(image: HTMLImageElement) {
-  const width = image.naturalWidth || image.width;
-  const height = image.naturalHeight || image.height;
-
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-  canvas.width = width;
-  canvas.height = height;
-
-  if (!ctx) {
-    return {
-      cropX: 0,
-      cropY: 0,
-      cropWidth: width,
-      cropHeight: height,
-    };
-  }
-
-  ctx.drawImage(image, 0, 0);
-
-  const data = ctx.getImageData(0, 0, width, height).data;
-
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
-  let foundPixel = false;
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const alpha = data[(y * width + x) * 4 + 3];
-
-      if (alpha > 8) {
-        foundPixel = true;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-
-  if (!foundPixel) {
-    return {
-      cropX: 0,
-      cropY: 0,
-      cropWidth: width,
-      cropHeight: height,
-    };
-  }
-
-  const safetyPadding = 8;
-
-  const cropX = Math.max(0, minX - safetyPadding);
-  const cropY = Math.max(0, minY - safetyPadding);
-  const cropWidth = Math.min(width - cropX, maxX - minX + safetyPadding * 2);
-  const cropHeight = Math.min(height - cropY, maxY - minY + safetyPadding * 2);
-
-  return {
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight,
-  };
-}
-
 export function ShirtViewer({ className = "" }: ShirtViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const framesRef = useRef<FrameData[]>([]);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
   const currentFrameRef = useRef(0);
   const loadedRef = useRef(false);
 
@@ -132,9 +57,9 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
   const drawCurrentFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    const frame = framesRef.current[currentFrameRef.current];
+    const image = imagesRef.current[currentFrameRef.current];
 
-    if (!canvas || !ctx || !frame) return;
+    if (!canvas || !ctx || !image) return;
 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
@@ -145,31 +70,32 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    const targetWidth = canvasWidth * 0.86;
-    const targetHeight = canvasHeight * 0.86;
+    const imageWidth = image.naturalWidth || image.width;
+    const imageHeight = image.naturalHeight || image.height;
+
+    if (!imageWidth || !imageHeight) return;
+
+    /*
+      Importante:
+      Não recorta transparência.
+      Não recalcula pelo conteúdo visível.
+      Desenha todos os PNGs inteiros dentro do mesmo quadro.
+      Isso impede a camisa de crescer, diminuir ou "pular" a cada frame.
+    */
+    const padding = canvasWidth * 0.02;
 
     const scale = Math.min(
-      targetWidth / frame.cropWidth,
-      targetHeight / frame.cropHeight
+      (canvasWidth - padding * 2) / imageWidth,
+      (canvasHeight - padding * 2) / imageHeight
     );
 
-    const drawWidth = frame.cropWidth * scale;
-    const drawHeight = frame.cropHeight * scale;
+    const drawWidth = imageWidth * scale;
+    const drawHeight = imageHeight * scale;
 
     const x = (canvasWidth - drawWidth) / 2;
     const y = (canvasHeight - drawHeight) / 2;
 
-    ctx.drawImage(
-      frame.image,
-      frame.cropX,
-      frame.cropY,
-      frame.cropWidth,
-      frame.cropHeight,
-      x,
-      y,
-      drawWidth,
-      drawHeight
-    );
+    ctx.drawImage(image, x, y, drawWidth, drawHeight);
   }, []);
 
   const resizeCanvas = useCallback(() => {
@@ -238,31 +164,16 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     let cancelled = false;
 
     async function preloadFrames() {
-      const frames = await Promise.all(
+      const loadedImages = await Promise.all(
         FRAME_SOURCES.map(
           (src) =>
-            new Promise<FrameData>((resolve) => {
+            new Promise<HTMLImageElement>((resolve) => {
               const image = new Image();
               image.decoding = "async";
 
-              image.onload = () => {
-                const bounds = getVisibleBounds(image);
+              image.onload = () => resolve(image);
 
-                resolve({
-                  image,
-                  ...bounds,
-                });
-              };
-
-              image.onerror = () => {
-                resolve({
-                  image,
-                  cropX: 0,
-                  cropY: 0,
-                  cropWidth: image.naturalWidth || image.width || 1,
-                  cropHeight: image.naturalHeight || image.height || 1,
-                });
-              };
+              image.onerror = () => resolve(image);
 
               image.src = src;
             })
@@ -271,7 +182,7 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
 
       if (cancelled) return;
 
-      framesRef.current = frames;
+      imagesRef.current = loadedImages;
       loadedRef.current = true;
       setIsLoaded(true);
 
@@ -300,6 +211,7 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
 
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
 
     const observer = new ResizeObserver(() => {
@@ -334,7 +246,7 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
-      // evita erro caso o navegador recuse a captura
+      // Evita erro caso o navegador recuse a captura.
     }
   }
 
@@ -358,7 +270,7 @@ export function ShirtViewer({ className = "" }: ShirtViewerProps) {
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
-      // evita erro caso o pointer já tenha sido solto
+      // Evita erro caso o pointer já tenha sido solto.
     }
 
     scheduleResume();
